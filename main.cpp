@@ -31,7 +31,7 @@ public:
     std::string method;
     std::string path;
     std::string protocol_version;
-    std::list<std::pair<std::string, std::string>> headers;
+    std::map<std::string, std::string> headers;
     std::string body;
 
     const std::string get_request() const {
@@ -104,12 +104,12 @@ public:
         request.method = "GET";
         request.path   = "/";
         request.protocol_version = "HTTP/1.1";
-        request.headers.emplace(request.headers.end(),"Host", "10.239.241.160:8000");
-        request.headers.emplace(request.headers.end(),"Accept-Encoding", "identity");
-        request.headers.emplace(request.headers.end(),"Content-Length", "0");
-        request.headers.emplace(request.headers.end(),std::string("x-amz-date"), time);
+        request.headers.emplace("Host", "10.239.241.160:8000");
+        request.headers.emplace("Accept-Encoding", "identity");
+        request.headers.emplace("Content-Length", "0");
+        request.headers.emplace(std::string("x-amz-date"), time);
         std::string sign = request.auth_v2();
-        request.headers.emplace(request.headers.end(),std::string("Authorization"), std::string("AWS 0555b35654ad1656d804:"+sign));
+        request.headers.emplace(std::string("Authorization"), std::string("AWS 0555b35654ad1656d804:"+sign));
     }
 
     std::string get_value() {
@@ -126,12 +126,12 @@ public:
         request.method = "DELETE";
         request.path   = "/testbkt";
         request.protocol_version = "HTTP/1.1";
-        request.headers.emplace(request.headers.end(),"Host", "10.239.241.160:8000");
-        request.headers.emplace(request.headers.end(),"Accept-Encoding", "identity");
-        request.headers.emplace(request.headers.end(),"Content-Length", "0");
-        request.headers.emplace(request.headers.end(),std::string("x-amz-date"), time);
+        request.headers.emplace("Host", "10.239.241.160:8000");
+        request.headers.emplace("Accept-Encoding", "identity");
+        request.headers.emplace("Content-Length", "0");
+        request.headers.emplace(std::string("x-amz-date"), time);
         std::string sign = request.auth_v2();
-        request.headers.emplace(request.headers.end(),std::string("Authorization"), std::string("AWS 0555b35654ad1656d804:"+sign));
+        request.headers.emplace(std::string("Authorization"), std::string("AWS 0555b35654ad1656d804:"+sign));
     }
 
     std::string get_value() {
@@ -148,12 +148,12 @@ public:
         request.method = "PUT";
         request.path   = "/testbkt/";
         request.protocol_version = "HTTP/1.1";
-        request.headers.emplace(request.headers.end(),"Host", "10.239.241.160:8000");
-        request.headers.emplace(request.headers.end(),"Accept-Encoding", "identity");
-        request.headers.emplace(request.headers.end(),"Content-Length", "103");
-        request.headers.emplace(request.headers.end(),std::string("x-amz-date"), time);
+        request.headers.emplace("Host", "10.239.241.160:8000");
+        request.headers.emplace("Accept-Encoding", "identity");
+        request.headers.emplace("Content-Length", "103");
+        request.headers.emplace(std::string("x-amz-date"), time);
         std::string sign = request.auth_v2();
-        request.headers.emplace(request.headers.end(),std::string("Authorization"), std::string("AWS 0555b35654ad1656d804:"+sign));
+        request.headers.emplace(std::string("Authorization"), std::string("AWS 0555b35654ad1656d804:"+sign));
         request.body = "<CreateBucketConfiguration><LocationConstraint>default</LocationConstraint></CreateBucketConfiguration>";
     }
 
@@ -180,7 +180,6 @@ int main(int argc, char* argv[]) {
 //     unsigned char result[256];
 //     HMAC_SHA256 hmac_sha256(std::string("AWS4"+std::string(secret_key)).c_str(), strlen(secret_key)+4);
 //     hmac_sha256.Update("20201228", 8);
-
 //     unsigned int reslen = hmac_sha256.Final(result);
 //     hmac_sha256.Reset(result, reslen);
 //     hmac_sha256.Update("default", 7);
@@ -237,8 +236,8 @@ int main(int argc, char* argv[]) {
         std::cout << "time: " << time << std::endl;
 
 
-        // getRequest req;
-        deleteRequest req;
+        getRequest req;
+        // deleteRequest req;
         // putRequest req;
         req.set_value(time);
         const auto request = req.get_value();
