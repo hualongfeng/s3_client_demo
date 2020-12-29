@@ -42,7 +42,7 @@ public:
         }
         request_stream << "\r\n";
         if(!body.empty()) {
-            request_stream << body << "\r\n";
+            request_stream << body;
         }
         return request_stream.str();
     }
@@ -98,25 +98,47 @@ public:
 
 class getRequest {
 public:
-    httpRequest get_request;
+    httpRequest request;
 
     void set_value(std::string &time) {
-        get_request.method = "GET";
-        get_request.path   = "/mycontainers3";
-        get_request.protocol_version = "HTTP/1.1";
-        get_request.headers.emplace(get_request.headers.end(),"Host", "10.239.241.160:8000");
-        get_request.headers.emplace(get_request.headers.end(),"Accept-Encoding", "identity");
-        get_request.headers.emplace(get_request.headers.end(),"Content-Length", "0");
-        get_request.headers.emplace(get_request.headers.end(),std::string("x-amz-date"), time);
-        std::string sign = get_request.auth_v2();
-        get_request.headers.emplace(get_request.headers.end(),std::string("Authorization"), std::string("AWS 0555b35654ad1656d804:"+sign));
+        request.method = "GET";
+        request.path   = "/";
+        request.protocol_version = "HTTP/1.1";
+        request.headers.emplace(request.headers.end(),"Host", "10.239.241.160:8000");
+        request.headers.emplace(request.headers.end(),"Accept-Encoding", "identity");
+        request.headers.emplace(request.headers.end(),"Content-Length", "0");
+        request.headers.emplace(request.headers.end(),std::string("x-amz-date"), time);
+        std::string sign = request.auth_v2();
+        request.headers.emplace(request.headers.end(),std::string("Authorization"), std::string("AWS 0555b35654ad1656d804:"+sign));
     }
 
     std::string get_value() {
-        return get_request.get_request();
+        return request.get_request();
+    }
+};
+
+
+class deleteRequest {
+public:
+    httpRequest request;
+
+    void set_value(std::string &time) {
+        request.method = "DELETE";
+        request.path   = "/testbkt";
+        request.protocol_version = "HTTP/1.1";
+        request.headers.emplace(request.headers.end(),"Host", "10.239.241.160:8000");
+        request.headers.emplace(request.headers.end(),"Accept-Encoding", "identity");
+        request.headers.emplace(request.headers.end(),"Content-Length", "0");
+        request.headers.emplace(request.headers.end(),std::string("x-amz-date"), time);
+        std::string sign = request.auth_v2();
+        request.headers.emplace(request.headers.end(),std::string("Authorization"), std::string("AWS 0555b35654ad1656d804:"+sign));
     }
 
+    std::string get_value() {
+        return request.get_request();
+    }
 };
+
 
 class putRequest {
 public:
@@ -216,7 +238,8 @@ int main(int argc, char* argv[]) {
 
 
         // getRequest req;
-        putRequest req;
+        deleteRequest req;
+        // putRequest req;
         req.set_value(time);
         const auto request = req.get_value();
 
