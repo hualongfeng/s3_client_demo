@@ -1,4 +1,4 @@
-#include "s3_hmac.h"
+#include "crypto.h"
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 #include <cstring>
@@ -75,6 +75,20 @@ HMAC_SHA256::HMAC_SHA256(const void* key, int len)
 HMAC_SHA1::HMAC_SHA1(const void* key, int len) 
   : HMAC(EVP_sha1(), key, len) {}
 
+
+void EvpDigest::Update(const void* data, size_t len) {
+  EVP_DigestUpdate(mCtx, data, len);
+}
+
+unsigned int EvpDigest::Final(void* res) {
+  unsigned int reslen;
+  EVP_DigestFinal_ex(mCtx, reinterpret_cast<unsigned char*>(res), &reslen);
+  return reslen;
+}
+
+int EvpDigest::Reset() {
+  return EVP_MD_CTX_reset(mCtx);
+}
 
 /*
 

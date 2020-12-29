@@ -1,4 +1,4 @@
-#include "s3_hmac.h"
+#include "crypto.h"
 #include "Base64.h"
 #include <iostream>
 #include <boost/array.hpp>
@@ -7,6 +7,7 @@
 #include <istream>
 #include <ostream>
 #include <map>
+#include <list>
 
 using boost::asio::ip::tcp;
 
@@ -21,6 +22,7 @@ std::string localtime() {
    info = gmtime( &rawtime );
    //strftime(buffer, 80, "%a, %d %b %Y %H:%M:%S +0000", info);
    strftime(buffer, 80, "%a, %d %b %Y %H:%M:%S %Z", info);
+//    strftime(buffer, 80, "%Y%m%dT%H%M%SZ", info);
    return std::string(buffer);
 }
 
@@ -29,7 +31,7 @@ public:
     std::string method;
     std::string path;
     std::string protocol_version;
-    std::map<std::string, std::string> headers;
+    std::list<std::pair<std::string, std::string>> headers;
     std::string body;
 
     const std::string get_request() const {
@@ -49,22 +51,24 @@ public:
         return std::string(key + ":" + value + "\r\n");
     }
 
-    std::string auth() {
+    std::string auth_v2() {
         std::stringstream ss;
         ss  << method + "\n";
-        auto md5_it = headers.find("Content-MD5");
-        if(md5_it != headers.end()) {
-            ss << md5_it->second << "\n";
-        }else {
-            ss << "\n";
-        }
+        // auto md5_it = headers.find("Content-MD5");
+        // if(md5_it != headers.end()) {
+        //     ss << md5_it->second << "\n";
+        // }else {
+        //     ss << "\n";
+        // }
+        ss << "\n";
 
-        auto type_it = headers.find("Content-Type");
-        if(type_it != headers.end()) {
-            ss << type_it->second << "\n";
-        }else {
-            ss << "\n";
-        }
+        // auto type_it = headers.find("Content-Type");
+        // if(type_it != headers.end()) {
+        //     ss << type_it->second << "\n";
+        // }else {
+        //     ss << "\n";
+        // }
+        ss << "\n";
 
         //date
         ss << "\n";
@@ -87,6 +91,7 @@ public:
         char result[32];
         int reslen = hmac_sha1.Final(result);
         std::string ret = macaron::Base64::Encode(std::string(result, reslen));
+        std::cout << "Signature: " << ret << std::endl;
         return ret;
     }
 };
@@ -99,16 +104,39 @@ public:
         get_request.method = "GET";
         get_request.path   = "/mycontainers3";
         get_request.protocol_version = "HTTP/1.1";
-        get_request.headers.emplace("Host", "10.239.241.160:8000");
-        get_request.headers.emplace("Accept-Encoding", "identity");
-        get_request.headers.emplace("Content-Length", "0");
-        get_request.headers.emplace(std::string("x-amz-date"), time);
-        std::string sign = get_request.auth();
-        get_request.headers.emplace(std::string("Authorization"), std::string("AWS 0555b35654ad1656d804:"+sign));
+        get_request.headers.emplace(get_request.headers.end(),"Host", "10.239.241.160:8000");
+        get_request.headers.emplace(get_request.headers.end(),"Accept-Encoding", "identity");
+        get_request.headers.emplace(get_request.headers.end(),"Content-Length", "0");
+        get_request.headers.emplace(get_request.headers.end(),std::string("x-amz-date"), time);
+        std::string sign = get_request.auth_v2();
+        get_request.headers.emplace(get_request.headers.end(),std::string("Authorization"), std::string("AWS 0555b35654ad1656d804:"+sign));
     }
 
     std::string get_value() {
         return get_request.get_request();
+    }
+
+};
+
+class putRequest {
+public:
+    httpRequest request;
+
+    void set_value(std::string &time) {
+        request.method = "PUT";
+        request.path   = "/testbkt/";
+        request.protocol_version = "HTTP/1.1";
+        request.headers.emplace(request.headers.end(),"Host", "10.239.241.160:8000");
+        request.headers.emplace(request.headers.end(),"Accept-Encoding", "identity");
+        request.headers.emplace(request.headers.end(),"Content-Length", "103");
+        request.headers.emplace(request.headers.end(),std::string("x-amz-date"), time);
+        std::string sign = request.auth_v2();
+        request.headers.emplace(request.headers.end(),std::string("Authorization"), std::string("AWS 0555b35654ad1656d804:"+sign));
+        request.body = "<CreateBucketConfiguration><LocationConstraint>default</LocationConstraint></CreateBucketConfiguration>";
+    }
+
+    std::string get_value() {
+        return request.get_request();
     }
 
 };
@@ -121,10 +149,44 @@ public:
 
 
 int main(int argc, char* argv[]) {
-//    if(argc != 2) {
-//        std::cerr << "Usage: "<< argv[0] <<" <host>" << std::endl;
-//        return 1;
-//    }
+
+//     std::string signature = "AWS4-HMAC-SHA256\n"
+//     "20201228T104452Z\n"
+//     "20201228/default/s3/aws4_request\n"
+//     "d274d57b0bd246b6e6335d047573d209890c2422828e9cec2b93b9a1a54eeb41";
+
+//     unsigned char result[256];
+//     HMAC_SHA256 hmac_sha256(std::string("AWS4"+std::string(secret_key)).c_str(), strlen(secret_key)+4);
+//     hmac_sha256.Update("20201228", 8);
+
+//     unsigned int reslen = hmac_sha256.Final(result);
+//     hmac_sha256.Reset(result, reslen);
+//     hmac_sha256.Update("default", 7);
+//     reslen = hmac_sha256.Final(result);
+//     hmac_sha256.Reset(result, reslen);
+//     hmac_sha256.Update("s3", 2);
+//     reslen = hmac_sha256.Final(result);
+//     hmac_sha256.Reset(result, reslen);
+//     hmac_sha256.Update("aws4_request", 12);
+//     reslen = hmac_sha256.Final(result);
+
+//     for(int i = 0; i < reslen; i++) {
+//         printf("%02x", reinterpret_cast<unsigned char*>(result)[i]);
+//     }
+//     printf("\n");
+
+//     hmac_sha256.Reset(result, reslen);
+//     hmac_sha256.Update(signature.c_str(), signature.size());
+//     reslen = hmac_sha256.Final(result);
+
+//     for(int i = 0; i < reslen; i++) {
+//         printf("%02x", reinterpret_cast<unsigned char*>(result)[i]);
+//     }
+//     printf("\n");
+
+
+
+// return 0;
 
     std::string host = "www.baidu.com";
 
@@ -153,9 +215,10 @@ int main(int argc, char* argv[]) {
         std::cout << "time: " << time << std::endl;
 
 
-        getRequest get_request;
-        get_request.set_value(time);
-        const auto request = get_request.get_value();
+        // getRequest req;
+        putRequest req;
+        req.set_value(time);
+        const auto request = req.get_value();
 
         boost::asio::write(socket, boost::asio::buffer(request), ec);
 
