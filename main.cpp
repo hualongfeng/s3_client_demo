@@ -102,12 +102,15 @@ public:
 
     void set_value(std::string &time) {
         request.method = "GET";
-        request.path   = "/";
+        request.path   = "/testbkt/object";
         request.protocol_version = "HTTP/1.1";
         request.headers.emplace("Host", "10.239.241.160:8000");
         request.headers.emplace("Accept-Encoding", "identity");
         request.headers.emplace("Content-Length", "0");
         request.headers.emplace(std::string("x-amz-date"), time);
+        // request.headers.emplace("x-amz-server-side-encryption-customer-key", "eG5kaGZqZ2xveG5maHNreGpkaGZyaXhtZGpmcmRzaWQ=");
+        // request.headers.emplace("x-amz-server-side-encryption-customer-algorithm", "AES256");
+        // request.headers.emplace("x-amz-server-side-encryption-customer-key-md5","B64HxGtDGAjCk350zDHClQ==");
         std::string sign = request.auth_v2();
         request.headers.emplace(std::string("Authorization"), std::string("AWS 0555b35654ad1656d804:"+sign));
     }
@@ -140,6 +143,33 @@ public:
 };
 
 
+class putObjectRequest {
+public:
+    httpRequest request;
+
+    void set_value(std::string &time) {
+        request.method = "PUT";
+        request.path   = "/testbkt/object";
+        request.protocol_version = "HTTP/1.1";
+        request.headers.emplace("Host", "10.239.241.160:8000");
+        request.headers.emplace("Accept-Encoding", "identity");
+        request.headers.emplace("Content-Length", "103");
+        request.headers.emplace(std::string("x-amz-date"), time);
+        // request.headers.emplace("x-amz-server-side-encryption-customer-key", "eG5kaGZqZ2xveG5maHNreGpkaGZyaXhtZGpmcmRzaWQ=");
+        // request.headers.emplace("x-amz-server-side-encryption-customer-algorithm", "AES256");
+        // request.headers.emplace("x-amz-server-side-encryption-customer-key-md5","B64HxGtDGAjCk350zDHClQ==");
+        std::string sign = request.auth_v2();
+        request.headers.emplace(std::string("Authorization"), std::string("AWS 0555b35654ad1656d804:"+sign));
+        request.body = "<CreateBucketConfiguration><LocationConstraint>default</LocationConstraint></CreateBucketConfiguration>";
+    }
+
+    std::string get_value() {
+        return request.get_request();
+    }
+
+};
+
+
 class putRequest {
 public:
     httpRequest request;
@@ -169,45 +199,57 @@ public:
 
 
 
-
 int main(int argc, char* argv[]) {
 
-//     std::string signature = "AWS4-HMAC-SHA256\n"
-//     "20201228T104452Z\n"
-//     "20201228/default/s3/aws4_request\n"
-//     "d274d57b0bd246b6e6335d047573d209890c2422828e9cec2b93b9a1a54eeb41";
+    std::string signature = "AWS4-HMAC-SHA256\n"
+    "20201228T104452Z\n"
+    "20201228/default/s3/aws4_request\n"
+    "d274d57b0bd246b6e6335d047573d209890c2422828e9cec2b93b9a1a54eeb41";
 
-//     unsigned char result[256];
-//     HMAC_SHA256 hmac_sha256(std::string("AWS4"+std::string(secret_key)).c_str(), strlen(secret_key)+4);
-//     hmac_sha256.Update("20201228", 8);
-//     unsigned int reslen = hmac_sha256.Final(result);
-//     hmac_sha256.Reset(result, reslen);
-//     hmac_sha256.Update("default", 7);
-//     reslen = hmac_sha256.Final(result);
-//     hmac_sha256.Reset(result, reslen);
-//     hmac_sha256.Update("s3", 2);
-//     reslen = hmac_sha256.Final(result);
-//     hmac_sha256.Reset(result, reslen);
-//     hmac_sha256.Update("aws4_request", 12);
-//     reslen = hmac_sha256.Final(result);
+    unsigned char result[256];
+    HMAC_SHA256 hmac_sha256(std::string("AWS4"+std::string(secret_key)).c_str(), strlen(secret_key)+4);
+    hmac_sha256.Update("20201228", 8);
+    unsigned int reslen = hmac_sha256.Final(result);
+    hmac_sha256.Reset(result, reslen);
+    hmac_sha256.Update("default", 7);
+    reslen = hmac_sha256.Final(result);
+    hmac_sha256.Reset(result, reslen);
+    hmac_sha256.Update("s3", 2);
+    reslen = hmac_sha256.Final(result);
+    hmac_sha256.Reset(result, reslen);
+    hmac_sha256.Update("aws4_request", 12);
+    reslen = hmac_sha256.Final(result);
 
-//     for(int i = 0; i < reslen; i++) {
-//         printf("%02x", reinterpret_cast<unsigned char*>(result)[i]);
-//     }
-//     printf("\n");
+    for(int i = 0; i < reslen; i++) {
+        printf("%02x", reinterpret_cast<unsigned char*>(result)[i]);
+    }
+    printf("\n");
 
-//     hmac_sha256.Reset(result, reslen);
-//     hmac_sha256.Update(signature.c_str(), signature.size());
-//     reslen = hmac_sha256.Final(result);
+    hmac_sha256.Reset(result, reslen);
+    hmac_sha256.Update(signature.c_str(), signature.size());
+    reslen = hmac_sha256.Final(result);
 
-//     for(int i = 0; i < reslen; i++) {
-//         printf("%02x", reinterpret_cast<unsigned char*>(result)[i]);
-//     }
-//     printf("\n");
+    for(int i = 0; i < reslen; i++) {
+        printf("%02x", reinterpret_cast<unsigned char*>(result)[i]);
+    }
+    printf("\n");
+
+
+//server-side-encryption
+    std::string key = "xndhfjgloxnfhskxjdhfrixmdjfrdsid";
+    std::string ret = macaron::Base64::Encode(key);  //x-amz-server-side-encryption-customer-key
+    std::cout << ret << std::endl;
+    MD5 md5;
+    md5.Update(key.c_str(), key.size());
+    reslen = md5.Final(result);
+
+    std::cout << reslen << std::endl;
+    ret = macaron::Base64::Encode(std::string(reinterpret_cast<char*>(result), reslen));
+    std::cout << ret << std::endl;      //x-amz-server-side-encryption-customer-key-md5
 
 
 
-// return 0;
+return 0;
 
     std::string host = "www.baidu.com";
 
@@ -236,9 +278,10 @@ int main(int argc, char* argv[]) {
         std::cout << "time: " << time << std::endl;
 
 
-        getRequest req;
+        // getRequest req;
         // deleteRequest req;
         // putRequest req;
+        putObjectRequest req;
         req.set_value(time);
         const auto request = req.get_value();
 
@@ -258,6 +301,7 @@ int main(int argc, char* argv[]) {
             }
 
             std::cout.write(buf.data(), len);
+            std::cout << std::flush;
         }
 
         // //method 2 to read
