@@ -18,7 +18,7 @@ link_libraries(${BOOST_LIB} ${AIO_LIB} ${SSL_LIB} ${CRYPTO_LIB})
 add_executable(asio_demo main.cpp 
                          crypto.cc 
                          common.cc
-                          )
+                         )
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
