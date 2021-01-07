@@ -10,45 +10,12 @@
 #include <map>
 #include <list>
 #include <boost/algorithm/string/case_conv.hpp>
+#include "common.h"
 
 using boost::asio::ip::tcp;
 
 const char* access_key = "0555b35654ad1656d804";
 const char* secret_key = "h7GhxuBLTrlhVUyxSPUKUV8r/2EI4ngqJxD7iBdBYLhwluN30JaT3Q==";
-
-std::string localtime() {
-   time_t rawtime;
-   struct tm *info;
-   char buffer[32];
-   time( &rawtime );
-   info = gmtime( &rawtime );
-   //strftime(buffer, 80, "%a, %d %b %Y %H:%M:%S +0000", info);
-   strftime(buffer, 80, "%a, %d %b %Y %H:%M:%S %Z", info);
-//    strftime(buffer, 80, "%Y%m%dT%H%M%SZ", info);
-   return std::string(buffer);
-}
-
-class s3Time {
-public:
-    static std::string get_v2() {
-        time_t rawtime;
-        time(&rawtime);
-        auto utc_time = gmtime(&rawtime);
-        char buffer[32];
-        //strftime(buffer, 80, "%a, %d %b %Y %H:%M:%S +0000", info);
-        strftime(buffer, 32, "%a, %d %b %Y %H:%M:%S %Z", utc_time);
-        return std::string(buffer);
-    }
-
-    static std::string get_v4() {
-        time_t rawtime;
-        time(&rawtime);
-        auto utc_time = gmtime(&rawtime);
-        char buffer[32];
-        strftime(buffer, 80, "%Y%m%dT%H%M%SZ", utc_time);
-        return std::string(buffer);
-    }
-};
 
 class httpRequest {
 public:
@@ -62,7 +29,7 @@ public:
         std::stringstream request_stream;
         request_stream << method << " " << path << " " << protocol_version << "\r\n";
         for(auto it = headers.cbegin(); it != headers.cend(); it++) {
-            request_stream << get_a_hander(it->first, it->second);
+            request_stream << format_a_hander(it->first, it->second);
         }
         request_stream << "\r\n";
         if(!body.empty()) {
@@ -71,8 +38,38 @@ public:
         return request_stream.str();
     }
 
-    std::string get_a_hander(const std::string& key, const std::string &value) const {
+    std::string format_a_hander(const std::string& key, const std::string &value) const {
         return std::string(key + ":" + value + "\r\n");
+    }
+
+    void set_method(const std::string& method) {
+        this->method = method;
+    }
+    void set_method(std::string&& method) {
+        this->method = std::move(method);
+    }
+
+    void set_path(const std::string& path) {
+        this->path = path;
+    }
+    void set_path(std::string&& path) {
+        this->path = std::move(path);
+    }
+
+    void set_protocol_version(const std::string& version) {
+        this->protocol_version = version;
+    }
+
+    void set_protocol_version(std::string&& version) {
+        this->protocol_version = std::move(version);
+    }
+
+    void add_header(const std::string &key, const std::string& value) {
+        headers.emplace(key, value);
+    }
+
+    void add_header(std::string &&key, std::string &&value) {
+        headers.emplace(std::move(key), std::move(value));
     }
 
     std::string auth_v2() {
@@ -124,20 +121,20 @@ class getRequest {
 public:
     httpRequest request;
 
-    void set_value(std::string &time) {
-        request.method = "GET";
-        request.path   = "/testbkt/object";
-        request.protocol_version = "HTTP/1.1";
-        request.headers.emplace("Host", "10.239.241.160:8000");
-        request.headers.emplace("Accept-Encoding", "identity");
-        request.headers.emplace("Content-Length", "0");
-        // request.headers.emplace("Range", "bytes=0-103");
-        request.headers.emplace(std::string("x-amz-date"), time);
-        request.headers.emplace("x-amz-server-side-encryption-customer-key", "eG5kaGZqZ2xveG5maHNreGpkaGZyaXhtZGpmcmRzaWQ=");
-        request.headers.emplace("x-amz-server-side-encryption-customer-algorithm", "AES256");
-        request.headers.emplace("x-amz-server-side-encryption-customer-key-md5","B64HxGtDGAjCk350zDHClQ==");
+    void set_value() {
+        request.set_method("GET");
+        request.set_path("/testbkt/object");
+        request.set_protocol_version("HTTP/1.1");
+        request.add_header("Host", "10.239.241.160:8000");
+        request.add_header("Accept-Encoding", "identity");
+        request.add_header("Content-Length", "0");
+        // request.add_header("Range", "bytes=0-103");
+        request.add_header("x-amz-date", s3Time::get_v2());
+        request.add_header("x-amz-server-side-encryption-customer-key", "eG5kaGZqZ2xveG5maHNreGpkaGZyaXhtZGpmcmRzaWQ=");
+        request.add_header("x-amz-server-side-encryption-customer-algorithm", "AES256");
+        request.add_header("x-amz-server-side-encryption-customer-key-md5","B64HxGtDGAjCk350zDHClQ==");
         std::string sign = request.auth_v2();
-        request.headers.emplace(std::string("Authorization"), std::string("AWS 0555b35654ad1656d804:"+sign));
+        request.add_header("Authorization", std::string("AWS 0555b35654ad1656d804:"+sign));
     }
 
     std::string get_value() {
@@ -150,16 +147,16 @@ class deleteRequest {
 public:
     httpRequest request;
 
-    void set_value(std::string &time) {
-        request.method = "DELETE";
-        request.path   = "/testbkt";
-        request.protocol_version = "HTTP/1.1";
-        request.headers.emplace("Host", "10.239.241.160:8000");
-        request.headers.emplace("Accept-Encoding", "identity");
-        request.headers.emplace("Content-Length", "0");
-        request.headers.emplace(std::string("x-amz-date"), time);
+    void set_value() {
+        request.set_method("DELETE");
+        request.set_path("/testbkt");
+        request.set_protocol_version("HTTP/1.1");
+        request.add_header("Host", "10.239.241.160:8000");
+        request.add_header("Accept-Encoding", "identity");
+        request.add_header("Content-Length", "0");
+        request.add_header("x-amz-date", s3Time::get_v2());
         std::string sign = request.auth_v2();
-        request.headers.emplace(std::string("Authorization"), std::string("AWS 0555b35654ad1656d804:"+sign));
+        request.add_header("Authorization", std::string("AWS 0555b35654ad1656d804:"+sign));
     }
 
     std::string get_value() {
@@ -172,19 +169,19 @@ class putObjectRequest {
 public:
     httpRequest request;
 
-    void set_value(std::string &time) {
-        request.method = "PUT";
-        request.path   = "/testbkt/object";
-        request.protocol_version = "HTTP/1.1";
-        request.headers.emplace("Host", "10.239.241.160:8000");
-        request.headers.emplace("Accept-Encoding", "identity");
-        request.headers.emplace("Content-Length", "103");
-        request.headers.emplace(std::string("x-amz-date"), time);
-        // request.headers.emplace("x-amz-server-side-encryption-customer-key", "eG5kaGZqZ2xveG5maHNreGpkaGZyaXhtZGpmcmRzaWQ=");
-        // request.headers.emplace("x-amz-server-side-encryption-customer-algorithm", "AES256");
-        // request.headers.emplace("x-amz-server-side-encryption-customer-key-md5","B64HxGtDGAjCk350zDHClQ==");
+    void set_value() {
+        request.set_method("PUT");
+        request.set_path("/testbkt/object");
+        request.set_protocol_version("HTTP/1.1");
+        request.add_header("Host", "10.239.241.160:8000");
+        request.add_header("Accept-Encoding", "identity");
+        request.add_header("Content-Length", "103");
+        request.add_header("x-amz-date", s3Time::get_v2());
+        // request.add_header("x-amz-server-side-encryption-customer-key", "eG5kaGZqZ2xveG5maHNreGpkaGZyaXhtZGpmcmRzaWQ=");
+        // request.add_header("x-amz-server-side-encryption-customer-algorithm", "AES256");
+        // request.add_header("x-amz-server-side-encryption-customer-key-md5","B64HxGtDGAjCk350zDHClQ==");
         std::string sign = request.auth_v2();
-        request.headers.emplace(std::string("Authorization"), std::string("AWS 0555b35654ad1656d804:"+sign));
+        request.add_header("Authorization", std::string("AWS 0555b35654ad1656d804:"+sign));
         request.body = "<CreateBucketConfiguration><LocationConstraint>default</LocationConstraint></CreateBucketConfiguration>";
     }
 
@@ -199,16 +196,16 @@ class putRequest {
 public:
     httpRequest request;
 
-    void set_value(std::string &time) {
-        request.method = "PUT";
-        request.path   = "/testbkt/";
-        request.protocol_version = "HTTP/1.1";
-        request.headers.emplace("Host", "10.239.241.160:8000");
-        request.headers.emplace("Accept-Encoding", "identity");
-        request.headers.emplace("Content-Length", "103");
-        request.headers.emplace(std::string("x-amz-date"), time);
+    void set_value() {
+        request.set_method("PUT");
+        request.set_path("/testbkt/");
+        request.set_protocol_version("HTTP/1.1");
+        request.add_header("Host", "10.239.241.160:8000");
+        request.add_header("Accept-Encoding", "identity");
+        request.add_header("Content-Length", "103");
+        request.add_header("x-amz-date", s3Time::get_v2());
         std::string sign = request.auth_v2();
-        request.headers.emplace(std::string("Authorization"), std::string("AWS 0555b35654ad1656d804:"+sign));
+        request.add_header("Authorization", std::string("AWS 0555b35654ad1656d804:"+sign));
         request.body = "<CreateBucketConfiguration><LocationConstraint>default</LocationConstraint></CreateBucketConfiguration>";
     }
 
@@ -250,6 +247,9 @@ std::string get_signature_key(std::string_view key,
     return std::string(reinterpret_cast<char*>(result), reslen);
 };
 
+/*
+  return: 20201228/default/s3/aws4_request
+*/
 std::string credential_scope(std::string_view dateStamp,
                              std::string_view regionName = "default",
                              std::string_view serviceName = "s3"){
@@ -272,6 +272,13 @@ std::string string_to_sign_v4(std::string_view amzDate,
 
 }
 
+/*
+     example:
+     string to sign: "AWS4-HMAC-SHA256\n"
+                     "20201228T104452Z\n"
+                     "20201228/default/s3/aws4_request\n"
+                     "d274d57b0bd246b6e6335d047573d209890c2422828e9cec2b93b9a1a54eeb41"
+*/
 std::string get_v4_signature(std::string_view signKey,
                              std::string_view stringToSign){
     unsigned char result[EVP_MAX_MD_SIZE];
@@ -299,20 +306,11 @@ std::string authorization_header(httpRequest& httpRequest) {
     std::string canonical_query_string = "";
     int headers_len = 0;
     int headers_valuelen = 0;
-    std::map<std::string, std::string> headers;
-    for(auto it = httpRequest.headers.begin(); it != httpRequest.headers.end(); it++){
-
+    auto& headers = httpRequest.headers;
+    for(auto it = headers.begin(); it != headers.end(); it++){
         headers_len += it->first.size();
         headers_valuelen += it->second.size();
-        std::string key = it->first;
-        boost::algorithm::to_lower(key);
-        headers.emplace(std::move(key), it->second);
     }
-//    for(auto it = headers.begin(); it != headers.end(); it++){
-//         headers_len += it->first.size();
-//         headers_valuelen += it->second.size();
-//         boost::algorithm::to_lower(it->first);
-//     }
     std::string canonical_headers;
     std::string signed_headers;
     canonical_headers.reserve(headers_len + headers_valuelen + headers.size()*2);
@@ -378,18 +376,17 @@ class getRequestV4 {
 public:
     httpRequest request;
 
-    void set_value(std::string &time) {
-        request.method = "GET";
-        request.path   = "/mycontainers1/";
-        request.protocol_version = "HTTP/1.1";
-        request.headers.emplace("Host", "10.239.241.160:8000");
-        request.headers.emplace("Accept-Encoding", "identity");
-        request.headers.emplace("Content-Length", "0");
-        // request.headers.emplace("Range", "bytes=0-103");
-        request.headers.emplace(std::string("x-amz-date"), time);
-        request.headers.emplace("x-amz-content-sha256", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
-        std::string sign = authorization_header(request);
-        request.headers.emplace(std::string("Authorization"), sign);
+    void set_value() {
+        request.set_method("GET");
+        request.set_path("/mycontainers1/");
+        request.set_protocol_version("HTTP/1.1");
+        request.add_header("host", "10.239.241.160:8000");
+        request.add_header("accept-Encoding", "identity");
+        request.add_header("content-Length", "0");
+        // request.add_header("Range", "bytes=0-103");
+        request.add_header("x-amz-date", s3Time::get_v4());
+        request.add_header("x-amz-content-sha256", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+        request.add_header(std::string("authorization"), authorization_header(request));
     }
 
     std::string get_value() {
@@ -527,18 +524,12 @@ int main(int argc, char* argv[]) {
         std::cout << connected_endpoint << std::endl;
 
 
-        std::string time = localtime();
-        time = s3Time::get_v4();
-        std::cout << "time: " << time << std::endl;
-
-
         // getRequest req;
         getRequestV4 req;
-        req.set_value(time);
         // deleteRequest req;
         // putRequest req;
         // putObjectRequest req;
-        // req.set_value(time);
+        req.set_value();
         const auto request = req.get_value();
 
         std::cout << request << std::endl;
