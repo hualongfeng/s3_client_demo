@@ -13,6 +13,7 @@
 #include "common.h"
 #include "config.h"
 #include "request.h"
+#include "response.h"
 
 using boost::asio::ip::tcp;
 
@@ -22,16 +23,19 @@ public:
 
     void set_value() {
         request.set_method("GET");
-        request.set_path("/testbkt/object");
+        request.set_path("/testbkt/object_compress");
         request.set_protocol_version("HTTP/1.1");
-        request.add_header("Host", "10.239.241.160:8000");
+        request.add_header("Host", "10.239.241.194:8000");
         request.add_header("Accept-Encoding", "identity");
         request.add_header("Content-Length", "0");
         // request.add_header("Range", "bytes=0-103");
         request.add_header("x-amz-date", s3Time::get_v2());
-        request.add_header("x-amz-server-side-encryption-customer-key", "eG5kaGZqZ2xveG5maHNreGpkaGZyaXhtZGpmcmRzaWQ=");
-        request.add_header("x-amz-server-side-encryption-customer-algorithm", "AES256");
-        request.add_header("x-amz-server-side-encryption-customer-key-md5","B64HxGtDGAjCk350zDHClQ==");
+        if(false){
+            request.add_header_server_side_encryption("xndhfjgloxnfhskxjdhfrixmdjfrdsid");
+        }
+        // request.add_header("x-amz-server-side-encryption-customer-key", "eG5kaGZqZ2xveG5maHNreGpkaGZyaXhtZGpmcmRzaWQ=");
+        // request.add_header("x-amz-server-side-encryption-customer-algorithm", "AES256");
+        // request.add_header("x-amz-server-side-encryption-customer-key-md5","B64HxGtDGAjCk350zDHClQ==");
         std::string sign = request.auth_v2();
         request.add_header("Authorization", std::string("AWS 0555b35654ad1656d804:"+sign));
     }
@@ -50,7 +54,7 @@ public:
         request.set_method("DELETE");
         request.set_path("/testbkt");
         request.set_protocol_version("HTTP/1.1");
-        request.add_header("Host", "10.239.241.160:8000");
+        request.add_header("Host", "10.239.241.194:8000");
         request.add_header("Accept-Encoding", "identity");
         request.add_header("Content-Length", "0");
         request.add_header("x-amz-date", s3Time::get_v2());
@@ -64,6 +68,7 @@ public:
 };
 
 
+
 class putObjectRequest {
 public:
     httpRequest request;
@@ -72,16 +77,31 @@ public:
         request.set_method("PUT");
         request.set_path("/testbkt/object");
         request.set_protocol_version("HTTP/1.1");
-        request.add_header("Host", "10.239.241.160:8000");
+        request.add_header("Host", "10.239.241.194:8000");
         request.add_header("Accept-Encoding", "identity");
-        request.add_header("Content-Length", "103");
+        // request.add_header("Content-Length", "103");
+        // request.add_header("Content-Encoding", "compress");
         request.add_header("x-amz-date", s3Time::get_v2());
+        request.add_header("x-amz-storage-class", "COLD");
+        if(false){
+            request.add_header_server_side_encryption("xndhfjgloxnfhskxjdhfrixmdjfrdsid");
+        }
         // request.add_header("x-amz-server-side-encryption-customer-key", "eG5kaGZqZ2xveG5maHNreGpkaGZyaXhtZGpmcmRzaWQ=");
         // request.add_header("x-amz-server-side-encryption-customer-algorithm", "AES256");
         // request.add_header("x-amz-server-side-encryption-customer-key-md5","B64HxGtDGAjCk350zDHClQ==");
         std::string sign = request.auth_v2();
         request.add_header("Authorization", std::string("AWS 0555b35654ad1656d804:"+sign));
-        request.body = "<CreateBucketConfiguration><LocationConstraint>default</LocationConstraint></CreateBucketConfiguration>";
+        // request.body = "<CreateBucketConfiguration><LocationConstraint>default</LocationConstraint></CreateBucketConfiguration>";
+        request.body.reserve(4194304);
+        std::string byte64 = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890-=";
+        for(int i = 0; i < 65536; i++) {
+            request.body.append(byte64);
+        }
+        char buffer[11];
+        snprintf(buffer, 11, "%ld", request.body.size());
+        // std::cout << request.body.size() << std::endl;
+        // std::cout << request.body.capacity() << std::endl;
+        request.add_header("Content-Length", buffer);
     }
 
     std::string get_value() {
@@ -99,7 +119,7 @@ public:
         request.set_method("PUT");
         request.set_path("/testbkt/");
         request.set_protocol_version("HTTP/1.1");
-        request.add_header("Host", "10.239.241.160:8000");
+        request.add_header("Host", "10.239.241.194:8000");
         request.add_header("Accept-Encoding", "identity");
         request.add_header("Content-Length", "103");
         request.add_header("x-amz-date", s3Time::get_v2());
@@ -152,9 +172,10 @@ std::string get_signature_key(std::string_view key,
 std::string credential_scope(std::string_view dateStamp,
                              std::string_view regionName = "default",
                              std::string_view serviceName = "s3"){
-    std::stringstream ss;
-    ss << dateStamp << "/" << regionName << "/" << serviceName << "/" << "aws4_request";
-    return ss.str();
+    // std::stringstream ss;
+    // ss << dateStamp << "/" << regionName << "/" << serviceName << "/" << "aws4_request";
+    // return ss.str();
+    return detail::string_join_reserve("/", dateStamp, regionName, serviceName, std::string_view("aws4_request"));
 }
 
 
@@ -162,12 +183,14 @@ std::string string_to_sign_v4(std::string_view amzDate,
                               std::string_view credential_scope,
                               std::string_view hashValSha256) {
     std::string algorithm = "AWS4-HMAC-SHA256";
-    std::stringstream ss;
-    ss << algorithm << "\n"
-       << amzDate << "\n"
-       << credential_scope << "\n"
-       << hashValSha256;
-    return ss.str();
+    // std::stringstream ss;
+    // ss << algorithm << "\n"
+    //    << amzDate << "\n"
+    //    << credential_scope << "\n"
+    //    << hashValSha256;
+    // return ss.str();
+    return detail::string_join_reserve("\n", algorithm, amzDate, credential_scope, hashValSha256);
+
 
 }
 
@@ -183,17 +206,17 @@ std::string get_v4_signature(std::string_view signKey,
     unsigned char result[EVP_MAX_MD_SIZE];
     unsigned int reslen = 0;
 
-    static constexpr size_t BUF_SIZE = 64;
+    static constexpr size_t BUF_SIZE = EVP_MAX_MD_SIZE;
 
     HMAC_SHA256 hmac_sha256(signKey.data(), signKey.size());
     hmac_sha256.Update(stringToSign.data(), stringToSign.size());
     reslen = hmac_sha256.Final(result);
 
-    char buffer[BUF_SIZE+1];
+    char buffer[BUF_SIZE*2+1];
     for(int i = 0; i < reslen; i++) {
         snprintf(buffer+2*i, 3, "%02x", result[i]);
     }
-    return std::string(buffer, BUF_SIZE);
+    return std::string(buffer);
 }
 
 
@@ -227,19 +250,24 @@ std::string authorization_header(httpRequest& httpRequest) {
 
     auto& content_sha256 = headers["x-amz-content-sha256"];
 
-    std::string canonical_request;
-    canonical_request.reserve(5 + http_verb.size() + canonical_uri.size() + canonical_query_string.size()+ canonical_headers.size() + signed_headers.size() + content_sha256.size());
-    canonical_request += http_verb;
-    canonical_request += "\n";
-    canonical_request += canonical_uri;
-    canonical_request += "\n";
-    canonical_request += canonical_query_string;
-    canonical_request += "\n";
-    canonical_request += canonical_headers;
-    canonical_request += "\n";
-    canonical_request += signed_headers;
-    canonical_request += "\n";
-    canonical_request += content_sha256;
+    std::string canonical_request = detail::string_join_reserve("\n", http_verb, 
+                                                                      canonical_uri, 
+                                                                      canonical_query_string, 
+                                                                      canonical_headers, 
+                                                                      signed_headers, 
+                                                                      content_sha256);
+    // canonical_request.reserve(5 + http_verb.size() + canonical_uri.size() + canonical_query_string.size()+ canonical_headers.size() + signed_headers.size() + content_sha256.size());
+    // canonical_request += http_verb;
+    // canonical_request += "\n";
+    // canonical_request += canonical_uri;
+    // canonical_request += "\n";
+    // canonical_request += canonical_query_string;
+    // canonical_request += "\n";
+    // canonical_request += canonical_headers;
+    // canonical_request += "\n";
+    // canonical_request += signed_headers;
+    // canonical_request += "\n";
+    // canonical_request += content_sha256;
 
     std::cout << "canonical_request:\n " << canonical_request << std::endl;
 
@@ -277,9 +305,9 @@ public:
 
     void set_value() {
         request.set_method("GET");
-        request.set_path("/mycontainers1/");
+        request.set_path("/");
         request.set_protocol_version("HTTP/1.1");
-        request.add_header("host", "10.239.241.160:8000");
+        request.add_header("host", "10.239.241.194:8000");
         request.add_header("accept-Encoding", "identity");
         request.add_header("content-Length", "0");
         // request.add_header("Range", "bytes=0-103");
@@ -316,7 +344,7 @@ int main(int argc, char* argv[]) {
 
 
 
-//     unsigned char result[256];
+    // unsigned char result[256];
 //     HMAC_SHA256 hmac_sha256(std::string("AWS4"+std::string(secret_key)).c_str(), strlen(secret_key)+4);
 //     hmac_sha256.Update("20201228", 8);
 //     unsigned int reslen = hmac_sha256.Final(result);
@@ -352,7 +380,7 @@ int main(int argc, char* argv[]) {
 //     std::vector<std::string> headers = {"host", "x-amz-date", "x-amz-content-sha256"};
 //     std::sort(headers.begin(), headers.end());
 //     std::string canonical_headers =
-//     "host:10.239.241.160:8000\n"
+//     "host:10.239.241.194:8000\n"
 //     "x-amz-content-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\n"
 //     "x-amz-date:20201228T104452Z\n";
 //     std::string signed_headers = headers[0]+";"+headers[1]+";"+headers[2];
@@ -368,7 +396,7 @@ int main(int argc, char* argv[]) {
 //     std::cout << canonical_request << std::endl;
 
 //     // "GET /mycontainers1/?delimiter=%2F HTTP/1.1\r\n"
-//     // "Host: 10.239.241.160:8000\r\n"
+//     // "Host: 10.239.241.194:8000\r\n"
 //     // "Accept-Encoding: identity\r\n"
 //     // "Content-Length: 0\r\n"
 //     // "x-amz-date: 20201228T104452Z";
@@ -384,19 +412,6 @@ int main(int argc, char* argv[]) {
 
 // std::cout << "--------------------------------" << std::endl;
 
-// //server-side-encryption
-//     std::string key = "xndhfjgloxnfhskxjdhfrixmdjfrdsid";
-//     std::string ret = macaron::Base64::Encode(key);  //x-amz-server-side-encryption-customer-key
-//     std::cout << ret << std::endl;
-//     MD5 md5;
-//     md5.Update(key.c_str(), key.size());
-//     reslen = md5.Final(result);
-
-//     std::cout << reslen << std::endl;
-//     ret = macaron::Base64::Encode(std::string(reinterpret_cast<char*>(result), reslen));
-//     std::cout << ret << std::endl;      //x-amz-server-side-encryption-customer-key-md5
-
-
 
 // return 0;
 
@@ -408,7 +423,7 @@ int main(int argc, char* argv[]) {
         tcp::socket socket(io_context);
         boost::system::error_code ec;
         // auto endpoints = resolver.resolve(host, "http", ec);
-        auto endpoints = resolver.resolve("10.239.241.160", "8000", ec);
+        auto endpoints = resolver.resolve("10.239.241.156", "8000", ec);
         for(auto&& endpoint : endpoints) {
             std::cout << endpoint.service_name() << " "
                       << endpoint.host_name() << " "
@@ -424,21 +439,45 @@ int main(int argc, char* argv[]) {
 
 
         // getRequest req;
-        getRequestV4 req;
+        // getRequestV4 req;
         // deleteRequest req;
         // putRequest req;
-        // putObjectRequest req;
+        if(1) {
+            putRequest req;
+            req.set_value();
+            const auto request = req.get_value();
+
+            std::cout << request << std::endl;
+
+            boost::asio::write(socket, boost::asio::buffer(request), ec);
+        }
+        putObjectRequest req;
+        // getRequest req;
         req.set_value();
         const auto request = req.get_value();
 
-        std::cout << request << std::endl;
-
+        // std::cout << request << std::endl;
+        std::cout << request.size() << std::endl;
         boost::asio::write(socket, boost::asio::buffer(request), ec);
+        // int pos = 0;
+        // int len = 65536;
+        // while(len != 0) {
+        //     std::string subRequest(request, pos, pos+len);
+        //     pos += len;
+        //     len = (pos + len > request.size() ? request.size() - pos : 65536);
+        //     boost::asio::write(socket, boost::asio::buffer(subRequest), ec);
+        // }
+
+        // httpResponse http_response;
+        // http_response.read_start_line(socket);
+        // std::cout << http_response.version << " "<< http_response.status << " " << http_response.reason_phrase << std::endl;
 
         // method 1 to read
         std::cout << "-----------------------------------------------------" << std::endl;
         for (;;) {
-            boost::array<char, 128> buf;
+            boost::array<char, 65536> buf;
+            std::stringstream ss1;
+            
             boost::system::error_code ec;
             size_t len = socket.read_some(boost::asio::buffer(buf), ec);
             if (ec == boost::asio::error::eof) {
@@ -447,9 +486,9 @@ int main(int argc, char* argv[]) {
             } else if (ec) {
                 throw boost::system::system_error(ec);
             }
-
             std::cout.write(buf.data(), len);
             std::cout << std::flush;
+            getchar();
         }
 
         // //method 2 to read

@@ -109,6 +109,25 @@ public:
         std::cout << "Signature: " << ret << std::endl;
         return ret;
     }
+
+    void add_header_server_side_encryption(std::string key) {
+        //server-side-encryption
+        // std::string key = "xndhfjgloxnfhskxjdhfrixmdjfrdsid";
+        std::string key64 = macaron::Base64::Encode(key);  //x-amz-server-side-encryption-customer-key
+        // std::cout << key64 << std::endl;
+        MD5 md5;
+        unsigned char result[256];
+        md5.Update(key.c_str(), key.size());
+        int reslen = md5.Final(result);
+
+        std::cout << reslen << std::endl;
+        std::string key_md5 = macaron::Base64::Encode(std::string(reinterpret_cast<char*>(result), reslen));
+        // std::cout << key_md5 << std::endl;      //x-amz-server-side-encryption-customer-key-md5
+
+        add_header("x-amz-server-side-encryption-customer-key", key64);
+        add_header("x-amz-server-side-encryption-customer-algorithm", "AES256");
+        add_header("x-amz-server-side-encryption-customer-key-md5",key_md5);
+    }
 };
 
 #endif // _REQUEST_H_

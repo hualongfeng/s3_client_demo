@@ -19,3 +19,4 @@ std::string s3Time::get_v4() {
     strftime(buffer, 80, "%Y%m%dT%H%M%SZ", utc_time);
     return std::string(buffer);
 }
+

@@ -9,9 +9,9 @@ enable_testing()
 
 include_directories(/home/fhl/Desktop/boost_1_73_0)
 FIND_LIBRARY(BOOST_LIB boost_coroutine boost_context boost_system /home/fhl/Desktop/boost_1_73_0/stage/lib)
-FIND_LIBRARY(AIO_LIB rt /usr/lib/x86_64-linux-gnu/)
-FIND_LIBRARY(SSL_LIB ssl /usr/lib/x86_64-linux-gnu/)
-FIND_LIBRARY(CRYPTO_LIB crypto /usr/lib/x86_64-linux-gnu/)
+FIND_LIBRARY(AIO_LIB rt)
+FIND_LIBRARY(SSL_LIB ssl)
+FIND_LIBRARY(CRYPTO_LIB crypto)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
 link_libraries(${BOOST_LIB} ${AIO_LIB} ${SSL_LIB} ${CRYPTO_LIB})
 
