@@ -1,6 +1,7 @@
 #include "crypto.h"
 #include "Base64.h"
 #include <iostream>
+#include <fstream>
 #include <boost/array.hpp>
 #include <boost/asio.hpp>
 #include <string>
@@ -25,7 +26,7 @@ public:
         request.set_method("GET");
         request.set_path("/testbkt/object_compress");
         request.set_protocol_version("HTTP/1.1");
-        request.add_header("Host", "10.239.241.194:8000");
+        request.add_header("Host", "10.239.241.50:8000");
         request.add_header("Accept-Encoding", "identity");
         request.add_header("Content-Length", "0");
         // request.add_header("Range", "bytes=0-103");
@@ -54,7 +55,7 @@ public:
         request.set_method("DELETE");
         request.set_path("/testbkt");
         request.set_protocol_version("HTTP/1.1");
-        request.add_header("Host", "10.239.241.194:8000");
+        request.add_header("Host", "10.239.241.50:8000");
         request.add_header("Accept-Encoding", "identity");
         request.add_header("Content-Length", "0");
         request.add_header("x-amz-date", s3Time::get_v2());
@@ -73,16 +74,16 @@ class putObjectRequest {
 public:
     httpRequest request;
 
-    void set_value() {
+    void set_value(std::string obj_name, std::string storage_class) {
         request.set_method("PUT");
-        request.set_path("/testbkt/object");
+        request.set_path(std::string("/testbkt/")+obj_name);
         request.set_protocol_version("HTTP/1.1");
-        request.add_header("Host", "10.239.241.194:8000");
+        request.add_header("Host", "10.239.241.50:8000");
         request.add_header("Accept-Encoding", "identity");
         // request.add_header("Content-Length", "103");
         // request.add_header("Content-Encoding", "compress");
         request.add_header("x-amz-date", s3Time::get_v2());
-        request.add_header("x-amz-storage-class", "COLD");
+        request.add_header("x-amz-storage-class", storage_class);
         if(false){
             request.add_header_server_side_encryption("xndhfjgloxnfhskxjdhfrixmdjfrdsid");
         }
@@ -94,7 +95,10 @@ public:
         // request.body = "<CreateBucketConfiguration><LocationConstraint>default</LocationConstraint></CreateBucketConfiguration>";
         request.body.reserve(4194304);
         std::string byte64 = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890-=";
-        for(int i = 0; i < 65536; i++) {
+        using namespace std;
+        ifstream infile("test.pdf", ios::in | ios::binary);
+        for(int i = 0; i < 65536*8; i++) {
+            infile.read((char*)(&byte64[0]), 64);
             request.body.append(byte64);
         }
         char buffer[11];
@@ -119,7 +123,7 @@ public:
         request.set_method("PUT");
         request.set_path("/testbkt/");
         request.set_protocol_version("HTTP/1.1");
-        request.add_header("Host", "10.239.241.194:8000");
+        request.add_header("Host", "10.239.241.50:8000");
         request.add_header("Accept-Encoding", "identity");
         request.add_header("Content-Length", "103");
         request.add_header("x-amz-date", s3Time::get_v2());
@@ -307,7 +311,7 @@ public:
         request.set_method("GET");
         request.set_path("/");
         request.set_protocol_version("HTTP/1.1");
-        request.add_header("host", "10.239.241.194:8000");
+        request.add_header("host", "10.239.241.50:8000");
         request.add_header("accept-Encoding", "identity");
         request.add_header("content-Length", "0");
         // request.add_header("Range", "bytes=0-103");
@@ -380,7 +384,7 @@ int main(int argc, char* argv[]) {
 //     std::vector<std::string> headers = {"host", "x-amz-date", "x-amz-content-sha256"};
 //     std::sort(headers.begin(), headers.end());
 //     std::string canonical_headers =
-//     "host:10.239.241.194:8000\n"
+//     "host:10.239.241.169:8000\n"
 //     "x-amz-content-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\n"
 //     "x-amz-date:20201228T104452Z\n";
 //     std::string signed_headers = headers[0]+";"+headers[1]+";"+headers[2];
@@ -396,7 +400,7 @@ int main(int argc, char* argv[]) {
 //     std::cout << canonical_request << std::endl;
 
 //     // "GET /mycontainers1/?delimiter=%2F HTTP/1.1\r\n"
-//     // "Host: 10.239.241.194:8000\r\n"
+//     // "Host: 10.239.241.169:8000\r\n"
 //     // "Accept-Encoding: identity\r\n"
 //     // "Content-Length: 0\r\n"
 //     // "x-amz-date: 20201228T104452Z";
@@ -423,7 +427,7 @@ int main(int argc, char* argv[]) {
         tcp::socket socket(io_context);
         boost::system::error_code ec;
         // auto endpoints = resolver.resolve(host, "http", ec);
-        auto endpoints = resolver.resolve("10.239.241.156", "8000", ec);
+        auto endpoints = resolver.resolve("10.239.241.50", "8000", ec);
         for(auto&& endpoint : endpoints) {
             std::cout << endpoint.service_name() << " "
                       << endpoint.host_name() << " "
@@ -451,14 +455,25 @@ int main(int argc, char* argv[]) {
 
             boost::asio::write(socket, boost::asio::buffer(request), ec);
         }
-        putObjectRequest req;
         // getRequest req;
-        req.set_value();
-        const auto request = req.get_value();
-
-        // std::cout << request << std::endl;
-        std::cout << request.size() << std::endl;
-        boost::asio::write(socket, boost::asio::buffer(request), ec);
+        {
+            putObjectRequest req;
+            req.set_value("object1", "COLD");
+            const auto request = req.get_value();
+            boost::asio::write(socket, boost::asio::buffer(request), ec);
+        }
+        {
+            putObjectRequest req;
+            req.set_value("object2", "STANDARD");
+            const auto request = req.get_value();
+            boost::asio::write(socket, boost::asio::buffer(request), ec);
+        }
+        {
+            putObjectRequest req;
+            req.set_value("object3", "COLD");
+            const auto request = req.get_value();
+            boost::asio::write(socket, boost::asio::buffer(request), ec);
+        }      
         // int pos = 0;
         // int len = 65536;
         // while(len != 0) {
